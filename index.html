@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Generador de Cuadros PDF</title>
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; padding: 30px; background: #f0f0f0; }
+  h2 { color: #333; margin-bottom: 20px; }
+  label { display: block; margin: 10px 0; font-size: 16px; }
+  input[type="number"] { padding: 5px; width: 60px; }
+  input[type="checkbox"] { margin-left: 5px; }
+  button { padding: 10px 20px; margin-top: 15px; font-size: 16px; cursor: pointer; background: #4CAF50; color: white; border: none; border-radius: 5px; }
+  button:hover { background: #45a049; }
+</style>
+</head>
+<body>
+
+<h2>Generador de Cuadros PDF</h2>
+
+<label>Número de divisiones: <input type="number" id="divs" value="4" min="2"></label>
+<label>Mostrar DDRSF: <input type="checkbox" id="ddrsf"></label>
+<button onclick="generarPDF()">Generar PDF</button>
+
+<script>
+async function generarPDF() {
+  const divs = parseInt(document.getElementById('divs').value);
+  const mostrar_ddrsf = document.getElementById('ddrsf').checked;
+
+  try {
+    // Cargar la plantilla PDF desde la carpeta assets
+    const url = 'assets/Plantilla_Sistemas_Operativos.pdf';
+    const arrayBuffer = await fetch(url).then(res => res.arrayBuffer());
+
+    const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+    const page = pdfDoc.getPages()[0];
+    const { width, height } = page.getSize();
+
+    const cuadros = [
+      { x: 107, y: height - 133 - 322, w: 173, h: 322, tipo: "FAT" },
+      { x: 540, y: height - 107 - 349, w: 213, h: 349, tipo: "DIRECTORIO" }
+    ];
+
+    const filas = Math.ceil(divs / 2);
+
+    cuadros.forEach(cuadro => {
+      const {x, y, w, h, tipo} = cuadro;
+      // Dibujar rectángulo y línea central
+      page.drawRectangle({ x, y, width: w, height: h, borderColor: PDFLib.rgb(0,0,0), borderWidth: 1 });
+      page.drawLine({ start: {x: x + w/2, y}, end: {x: x + w/2, y: y + h}, color: PDFLib.rgb(0,0,0), thickness:1 });
+
+      const altura_fila = h / filas;
+      for (let i = 1; i < filas; i++) {
+        page.drawLine({ start: {x: x, y: y + i*altura_fila}, end: {x: x + w, y: y + i*altura_fila}, color: PDFLib.rgb(0,0,0), thickness: 1 });
+      }
+
+      let contador = 1;
+      const columnas = [x, x + w/2];
+
+      for (let fila = 0; fila < filas; fila++) {
+        const y_fila = y + h - fila*altura_fila;
+        columnas.forEach(col => {
+          page.drawText(`C${contador}`, { x: col+2, y: y_fila-10, size: 8 });
+
+          if (tipo === "FAT" && mostrar_ddrsf) {
+            const izquierda = ["D","D","R"];
+            const derecha = ["S","F"];
+            const esp = (altura_fila+20)/(izquierda.length+1);
+            izquierda.forEach((l, idx) => page.drawText(l, {x: col+7, y: y_fila-(idx+1)*esp, size:12}));
+            derecha.forEach((l, idx) => page.drawText(l, {x: col+45, y: y_fila-(idx+1)*esp, size:12}));
+          }
+          contador++;
+        });
+      }
+    });
+
+    const pdfBytes = await pdfDoc.save();
+    const blob = new Blob([pdfBytes], { type: "application/pdf" });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = "Plantilla_con_cuadros.pdf";
+    link.click();
+
+  } catch (err) {
+    console.error("Error generando PDF:", err);
+    alert("Ocurrió un error cargando la plantilla. Revisa que el archivo exista en 'assets/'");
+  }
+}
+</script>
+
+</body>
+</html>
