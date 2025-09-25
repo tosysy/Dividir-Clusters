@@ -10,16 +10,16 @@
   label { display: block; margin: 10px 0; font-size: 16px; }
   input[type="number"] { padding: 5px; width: 60px; }
   input[type="checkbox"] { margin-left: 5px; }
-  button { padding: 10px 20px; margin-top: 15px; font-size: 16px; cursor: pointer; background: #4CAF50; color: white; border: none; border-radius: 5px; }
-  button:hover { background: #45a049; }
+  button { padding: 10px 20px; margin-top: 15px; font-size: 16px; cursor: pointer; background: #233886; color: white; border: none; border-radius: 5px; }
+  button:hover { background: #233886; }
 </style>
 </head>
 <body>
 
-<h2>Dividir en cuadros el Sistema Fat</h2>
+<h2>Dibujar divisiones de clústers en platntilla de Sistema Fat</h2>
 
 <label>Número de clústers: <input type="number" id="divs" value="4" min="2"></label>
-<label>Mostrar DDRSF (No funciona bien con muchos clústers): <input type="checkbox" id="ddrsf"></label>
+<label>Mostrar Booleanos (No funciona bien con muchos clústers): <input type="checkbox" id="ddrsf"></label>
 <button onclick="generarPDF()">Generar plantilla</button>
 
 <script>
