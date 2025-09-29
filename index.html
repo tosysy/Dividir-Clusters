@@ -2,91 +2,139 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Plantilla de sistema FAT</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plantilla de Sistema FAT</title>
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
 <style>
-  body { font-family: Arial, sans-serif; padding: 30px; background: #f0f0f0; }
-  h2 { color: #333; margin-bottom: 20px; }
-  label { display: block; margin: 10px 0; font-size: 16px; }
-  input[type="number"] { padding: 5px; width: 60px; }
-  input[type="checkbox"] { margin-left: 5px; }
-  button { padding: 10px 20px; margin-top: 15px; font-size: 16px; cursor: pointer; background: #233886; color: white; border: none; border-radius: 5px; }
-  button:hover { background: #233886; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        background: linear-gradient(135deg, #000000 0%, #ffffff 100%);
+        min-height: 100vh;
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        padding:20px;
+    }
+    .container {
+        background: #d1d5db;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        max-width: 600px;
+        width: 100%;
+        padding: 40px;
+        text-align:center;
+    }
+    h2 {
+        color: #1f2937;
+        margin-bottom: 20px;
+        font-size: 1.8em;
+    }
+    label {
+        display:block;
+        margin:15px 0;
+        font-size: 1em;
+        color: #333;
+    }
+    input[type="number"] {
+        padding: 8px;
+        width: 80px;
+        border-radius: 10px;
+        border:1px solid #999;
+        font-size: 1em;
+    }
+    input[type="checkbox"] {
+        margin-left:10px;
+        transform: scale(1.2);
+    }
+    .btn {
+        padding: 12px 25px;
+        margin-top: 20px;
+        font-size: 1em;
+        font-weight: 600;
+        cursor: pointer;
+        background: linear-gradient(135deg, #1f2937 0%, #000000 100%);
+        color:white;
+        border:none;
+        border-radius:25px;
+        transition: transform 0.2s;
+    }
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
 </style>
 </head>
 <body>
-
-<h2>Dibujar divisiones de clústers en platntilla de Sistema Fat</h2>
-
-<label>Número de clústers: <input type="number" id="divs" value="4" min="2"></label>
-<label>Mostrar Booleanos (No funciona bien con muchos clústers): <input type="checkbox" id="ddrsf"></label>
-<button onclick="generarPDF()">Generar plantilla</button>
+    <div class="container">
+        <h2>📄 Dibujar divisiones de clústers en Sistema FAT</h2>
+        <label>Número de clústers: <input type="number" id="divs" value="4" min="2"></label>
+        <label>Mostrar Booleanos (No funciona bien con muchos clústers): <input type="checkbox" id="ddrsf"></label>
+        <button class="btn" onclick="generarPDF()">🚀 Generar plantilla</button>
+    </div>
 
 <script>
 async function generarPDF() {
-  const divs = parseInt(document.getElementById('divs').value);
-  const mostrar_ddrsf = document.getElementById('ddrsf').checked;
+    const divs = parseInt(document.getElementById('divs').value);
+    const mostrar_ddrsf = document.getElementById('ddrsf').checked;
 
-  try {
-    // Cargar la plantilla PDF desde la carpeta assets
-    const url = 'assets/Plantilla_Sistemas_Operativos.pdf';
-    const arrayBuffer = await fetch(url).then(res => res.arrayBuffer());
+    try {
+        const url = 'assets/Plantilla_Sistemas_Operativos.pdf';
+        const arrayBuffer = await fetch(url).then(res => res.arrayBuffer());
 
-    const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
-    const page = pdfDoc.getPages()[0];
-    const { width, height } = page.getSize();
+        const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+        const page = pdfDoc.getPages()[0];
+        const { width, height } = page.getSize();
 
-    const cuadros = [
-      { x: 107, y: height - 133 - 322, w: 173, h: 322, tipo: "FAT" },
-      { x: 540, y: height - 107 - 349, w: 213, h: 349, tipo: "DIRECTORIO" }
-    ];
+        const cuadros = [
+            { x: 107, y: height - 133 - 322, w: 173, h: 322, tipo: "FAT" },
+            { x: 540, y: height - 107 - 349, w: 213, h: 349, tipo: "DIRECTORIO" }
+        ];
 
-    const filas = Math.ceil(divs / 2);
+        const filas = Math.ceil(divs / 2);
 
-    cuadros.forEach(cuadro => {
-      const {x, y, w, h, tipo} = cuadro;
-      // Dibujar rectángulo y línea central
-      page.drawRectangle({ x, y, width: w, height: h, borderColor: PDFLib.rgb(0,0,0), borderWidth: 1 });
-      page.drawLine({ start: {x: x + w/2, y}, end: {x: x + w/2, y: y + h}, color: PDFLib.rgb(0,0,0), thickness:1 });
+        cuadros.forEach(cuadro => {
+            const {x, y, w, h, tipo} = cuadro;
+            page.drawRectangle({ x, y, width: w, height: h, borderColor: PDFLib.rgb(0,0,0), borderWidth: 1 });
+            page.drawLine({ start: {x: x + w/2, y}, end: {x: x + w/2, y: y + h}, color: PDFLib.rgb(0,0,0), thickness:1 });
 
-      const altura_fila = h / filas;
-      for (let i = 1; i < filas; i++) {
-        page.drawLine({ start: {x: x, y: y + i*altura_fila}, end: {x: x + w, y: y + i*altura_fila}, color: PDFLib.rgb(0,0,0), thickness: 1 });
-      }
+            const altura_fila = h / filas;
+            for (let i = 1; i < filas; i++) {
+                page.drawLine({ start: {x: x, y: y + i*altura_fila}, end: {x: x + w, y: y + i*altura_fila}, color: PDFLib.rgb(0,0,0), thickness: 1 });
+            }
 
-      let contador = 1;
-      const columnas = [x, x + w/2];
+            let contador = 1;
+            const columnas = [x, x + w/2];
 
-      for (let fila = 0; fila < filas; fila++) {
-        const y_fila = y + h - fila*altura_fila;
-        columnas.forEach(col => {
-          page.drawText(`C${contador}`, { x: col+2, y: y_fila-10, size: 8 });
+            for (let fila = 0; fila < filas; fila++) {
+                const y_fila = y + h - fila*altura_fila;
+                columnas.forEach(col => {
+                    page.drawText(`C${contador}`, { x: col+2, y: y_fila-10, size: 8 });
 
-          if (tipo === "FAT" && mostrar_ddrsf) {
-            const izquierda = ["D","D","R"];
-            const derecha = ["S","F"];
-            const esp = (altura_fila+20)/(izquierda.length+1);
-            izquierda.forEach((l, idx) => page.drawText(l, {x: col+7, y: y_fila-(idx+1)*esp, size:12}));
-            derecha.forEach((l, idx) => page.drawText(l, {x: col+45, y: y_fila-(idx+1)*esp, size:12}));
-          }
-          contador++;
+                    if (tipo === "FAT" && mostrar_ddrsf) {
+                        const izquierda = ["D","D","R"];
+                        const derecha = ["S","F"];
+                        const esp = (altura_fila+20)/(izquierda.length+1);
+                        izquierda.forEach((l, idx) => page.drawText(l, {x: col+7, y: y_fila-(idx+1)*esp, size:12}));
+                        derecha.forEach((l, idx) => page.drawText(l, {x: col+45, y: y_fila-(idx+1)*esp, size:12}));
+                    }
+                    contador++;
+                });
+            }
         });
-      }
-    });
 
-    const pdfBytes = await pdfDoc.save();
-    const blob = new Blob([pdfBytes], { type: "application/pdf" });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = "Plantilla_con_cuadros.pdf";
-    link.click();
+        const pdfBytes = await pdfDoc.save();
+        const blob = new Blob([pdfBytes], { type: "application/pdf" });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = "Plantilla_con_cuadros.pdf";
+        link.click();
 
-  } catch (err) {
-    console.error("Error generando PDF:", err);
-    alert("Ocurrió un error cargando la plantilla. Revisa que el archivo exista en 'assets/'");
-  }
+    } catch (err) {
+        console.error("Error generando PDF:", err);
+        alert("Ocurrió un error cargando la plantilla. Revisa que el archivo exista en 'assets/'");
+    }
 }
 </script>
-
 </body>
 </html>
