@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema EXT</title>
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
+<link rel="stylesheet" href="styles.css">
+
+</head>
+<body>
+    <a href="index.html" class="btn-home" id="homeLink" style="animation: fadeInButton 0.5s ease-out;">🏠 <span>Página de Inicio</span></a>
+    <style>
+        @keyframes fadeInButton {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+
+    <div class="container">
+        <!-- Panel izquierdo: Generador PDF -->
+        <div class="panel" style="padding: 20px;">
+            <h2 style="font-size: 1.5em; margin-bottom: 18px; padding-bottom: 10px;">📄 Generador de Plantilla PDF</h2>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="divs" style="margin-bottom: 6px; font-size: 0.9em;">Número de Clústers</label>
+                    <input type="number" id="divs" value="8" min="2" max="20" style="padding: 10px 12px;">
+                </div>
+
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="inodos" style="margin-bottom: 6px; font-size: 0.9em;">Número de INodos</label>
+                    <input type="number" id="inodos" value="4" min="1" max="50" style="padding: 10px 12px;">
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="tipoPunteros" style="margin-bottom: 6px; font-size: 0.9em;">Tipo de Punteros</label>
+                    <select id="tipoPunteros" style="padding: 10px 12px;">
+                        <option value="simples">Simples</option>
+                        <option value="dobles">Dobles</option>
+                        <option value="triples">Triples</option>
+                    </select>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="punterosPorInodo" style="margin-bottom: 6px; font-size: 0.9em;">Punteros por Inodo</label>
+                    <input type="number" id="punterosPorInodo" value="2" min="1" max="20" style="padding: 10px 12px;">
+                </div>
+
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="punterosPorCluster" style="margin-bottom: 6px; font-size: 0.9em;">Punteros por Clúster</label>
+                    <input type="number" id="punterosPorCluster" value="2" min="1" max="20" style="padding: 10px 12px;">
+                </div>
+
+                <div class="form-group" style="display: flex; align-items: center; padding-top: 28px; margin-bottom: 12px;">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="ddr">
+                        <label for="ddr" style="margin: 0; font-size: 0.9em;">Mostrar booleanos (DDR)</label>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="generarPDF()" style="margin-top: 12px; padding: 12px 24px;">🚀 Generar Plantilla PDF</button>
+
+            <div class="divider" style="margin: 18px 0;"></div>
+
+            <div style="background: #fef3c7; padding: 10px; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                <strong style="color: #92400e; font-size: 0.85em;">💡 Instrucciones:</strong>
+                <p style="color: #78350f; margin-top: 5px; font-size: 0.78em; line-height: 1.3;">
+                    Configure el número de clústers, inodos, tipo de punteros y cantidad de punteros. 
+                    Active los booleanos si desea visualizar las columnas D, D, R en la tabla EXT. 
+                    Al generar, se descargará automáticamente un PDF con la estructura del sistema de archivos EXT.
+                </p>
+            </div>
+        </div>
+
+        <!-- Panel derecho: Explorador EXT -->
+        <div class="panel">
+            <h2>📋 Explorador del Sistema EXT</h2>
+
+            <div class="form-group">
+                <label for="comandoSelect">Comando</label>
+                <select id="comandoSelect" onchange="actualizarFormulario()">
+                    <option value="mkdir">📁 Crear directorio</option>
+                    <option value="addfile">📄 Añadir archivo</option>
+                    <option value="copy">📋 Copiar</option>
+                    <option value="move">✂️ Mover</option>
+                    <option value="delete">🗑️ Eliminar</option>
+                </select>
+            </div>
+
+            <div id="formExtra"></div>
+
+            <button onclick="agregarInstruccion()">➕ Añadir Instrucción</button>
+
+            <div class="divider"></div>
+
+            <h3>📁 Árbol del Sistema de Archivos</h3>
+            <pre id="vista">/ (raíz)</pre>
+
+            <h3>📊 Estadísticas</h3>
+            <div style="padding: 15px; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius: 12px; border: 2px solid #bae6fd;">
+                <span style="color: #0c4a6e; font-weight: 600;">Máximo de clústers: </span>
+                <span class="stats-badge" id="maxClusters">0</span>
+            </div>
+
+            <h3>📝 Historial de Instrucciones</h3>
+            <div id="listaInstrucciones">
+                <div class="empty-state">
+                    No hay instrucciones aún. ¡Añade la primera!
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+/* ============================================
+   GENERADOR DE PDF
+   ============================================ */
+async function generarPDF() {
+    const divs = parseInt(document.getElementById('divs').value);
+    const inodos = parseInt(document.getElementById('inodos').value);
+    const mostrar_ddr = document.getElementById('ddr').checked;
+    const tipoPunteros = document.getElementById('tipoPunteros').value;
+    const punterosPorInodo = parseInt(document.getElementById('punterosPorInodo').value);
+    const punterosPorCluster = parseInt(document.getElementById('punterosPorCluster').value);
+
+    try {
+        const url = 'assets/Plantilla_EXT.pdf';
+        const arrayBuffer = await fetch(url).then(res => res.arrayBuffer());
+        const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+        const page = pdfDoc.getPages()[0];
+        const { width, height } = page.getSize();
+
+        const cuadros = [
+            { x: 85.5, y: 31.7, w: 191, h: 534.5, tipo: "EXT" },
+            { x: 276.5, y: 31.7, w: 193, h: 534.5, tipo: "INODOS" },
+            { x: 469.5, y: 31.7, w: 350.4, h: 534.5, tipo: "DIRECTORIO" }
+        ];
+
+        const filas = Math.ceil(divs / 2);
+
+        // Añadir encabezados METADATOS y DATOS con líneas y flechas
+        const yEncabezado = 31.7 + 534.5 + 10; // Justo encima de los cuadros
+        const yLinea = yEncabezado - 5; // Línea debajo del texto
+        const tamanoFlecha = 8; // Tamaño de las flechas
+        const separacionFlechas = 5; // Separación entre las flechas de cada sección
+        
+        // METADATOS (desde el borde izquierdo hasta 469.5)
+        const xInicioMetadatos = 50 - 35.5; // Comenzar desde el borde izquierdo del PDF (restando los 35.5 que se añadieron antes)
+        const xFinMetadatos = 469.5 - separacionFlechas; // Dejamos espacio para separar
+        const anchoMetadatos = xFinMetadatos - xInicioMetadatos;
+        const xCentroMetadatos = (xInicioMetadatos + xFinMetadatos) / 2;
+        
+        page.drawText("METADATOS", {
+            x: xCentroMetadatos - 35, // Ajuste para centrar el texto
+            y: yEncabezado,
+            size: 14,
+            color: PDFLib.rgb(0, 0, 0)
+        });
+        
+
+        // Línea horizontal METADATOS
+        page.drawLine({
+            start: { x: xInicioMetadatos, y: yLinea },
+            end: { x: xFinMetadatos, y: yLinea },
+            color: PDFLib.rgb(0, 0, 0),
+            thickness: 1.5
+        });
+        
+        // Flecha izquierda METADATOS
+        page.drawLine({
+            start: { x: xInicioMetadatos, y: yLinea },
+            end: { x: xInicioMetadatos + tamanoFlecha, y: yLinea + tamanoFlecha/2 },
+            color: PDFLib.rgb(0, 0, 0),
+            thickness: 1.5
+        });
+        page.drawLine({
+            start: { x: xInicioMetadatos, y: yLinea },
+            end: { x: xInicioMetadatos + tamanoFlecha, y: yLinea - tamanoFlecha/2 },
+            color: PDFLib.rgb(0, 0, 0),
+            thickness: 1.5
+        });
+        
+        // Flecha derecha METADATOS
+        page.drawLine({
+            start: { x: xFinMetadatos, y: yLinea },
+            end: { x: xFinMetadatos - tamanoFlecha, y: yLinea + tamanoFlecha/2 },
+            color: PDFLib.rgb(0, 0, 0),
+            thickness: 1.5
+        });
+        page.drawLine({
+            start: { x: xFinMetadatos, y: yLinea },
+            end: { x: xFinMetadatos - tamanoFlecha, y: yLinea - tamanoFlecha/2 },
+            color: PDFLib.rgb(0, 0, 0),
+            thickness: 1.5
+        });
+
+        // DATOS (desde 469.5 hasta el final)
+        const xInicioDatos = 469.5 + separacionFlechas; // Dejamos espacio para separar
+        const xFinDatos = 469.5 + 350.4;
+        const xCentroDatos = (xInicioDatos + xFinDatos) / 2;
+        
+        page.drawText("DATOS", {
+            x: xCentroDatos - 20, // Ajuste para centrar el texto
+            y: yEncabezado,
+            size: 14,
+            color: PDFLib.rgb(0, 0, 0)
+        });
+        
+        // Línea horizontal DATOS
+        page.drawLine({
+            start: { x: xInicioDatos + tamanoFlecha, y: yLinea },
+            end: { x: xFinDatos - tamanoFlecha, y: yLinea },
+            color: PDFLib.rgb(0, 0, 0),
+            thickness: 1.5
+        });
+        
+        // Flecha izquierda DATOS
+        page.drawLine({
+            start: { x: xInicioDatos, y: yLinea },
+            end: { x: xInicioDatos + tamanoFlecha, y: yLinea + tamanoFlecha/2 },
+            color: PDFLib.rgb(0, 0, 0),
+            thickness: 1.5
+        });
+        page.drawLine({
+            start: { x: xInicioDatos, y: yLinea },
+            end: { x: xInicioDatos + tamanoFlecha, y: yLinea - tamanoFlecha/2 },
+            color: PDFLib.rgb(0, 0, 0),
+            thickness: 1.5
+        });
+        
+        // Flecha derecha DATOS
+        page.drawLine({
+            start: { x: xFinDatos, y: yLinea },
+            end: { x: xFinDatos - tamanoFlecha, y: yLinea + tamanoFlecha/2 },
+            color: PDFLib.rgb(0, 0, 0),
+            thickness: 1.5
+        });
+        page.drawLine({
+            start: { x: xFinDatos, y: yLinea },
+            end: { x: xFinDatos - tamanoFlecha, y: yLinea - tamanoFlecha/2 },
+            color: PDFLib.rgb(0, 0, 0),
+            thickness: 1.5
+        });
+
+        // Determinar etiquetas de punteros
+        let etiquetaInodo = "";
+        let etiquetaCluster = "";
+        
+        if (tipoPunteros === "simples") {
+            etiquetaInodo = "PS";
+            etiquetaCluster = ""; // Los simples no tienen punteros en clusters
+        } else if (tipoPunteros === "dobles") {
+            etiquetaInodo = "PD";
+            etiquetaCluster = "PS";
+        } else if (tipoPunteros === "triples") {
+            etiquetaInodo = "PT";
+            etiquetaCluster = "PD";
+        }
+
+        cuadros.forEach(cuadro => {
+            const {x, y, w, h, tipo} = cuadro;
+            
+            // Rectángulo principal
+            page.drawRectangle({ 
+                x, y, width: w, height: h, 
+                borderColor: PDFLib.rgb(0, 0, 0), 
+                borderWidth: 1 
+            });
+            
+            if (tipo === "INODOS") {
+                // Línea vertical discontinua en el medio
+                const numSegmentos = 50;
+                const longitudSegmento = h / numSegmentos;
+                for (let i = 0; i < numSegmentos; i += 2) {
+                    page.drawLine({
+                        start: {x: x + w/2, y: y + i * longitudSegmento},
+                        end: {x: x + w/2, y: y + (i + 1) * longitudSegmento},
+                        color: PDFLib.rgb(0, 0, 0),
+                        thickness: 1
+                    });
+                }
+
+                // Líneas horizontales para dividir los INodos
+                const altura_inodo = h / inodos;
+                for (let i = 1; i < inodos; i++) {
+                    page.drawLine({ 
+                        start: {x: x, y: y + i * altura_inodo}, 
+                        end: {x: x + w, y: y + i * altura_inodo}, 
+                        color: PDFLib.rgb(0, 0, 0), 
+                        thickness: 1 
+                    });
+                }
+
+                // Etiquetas de INodos y punteros
+                for (let i = 0; i < inodos; i++) {
+                    const y_inodo = y + h - i * altura_inodo;
+                    
+                    // Título del inodo (izquierda)
+                    page.drawText(`Inodo ${i + 1}`, { 
+                        x: x + 5, 
+                        y: y_inodo - 15, 
+                        size: 10 
+                    });
+
+                    // Punteros en el inodo (derecha) - distribuidos uniformemente
+                    if (etiquetaInodo) {
+                        const espacioVertical = altura_inodo / (punterosPorInodo + 1);
+                        for (let p = 0; p < punterosPorInodo; p++) {
+                            page.drawText(etiquetaInodo, {
+                                x: x + w/2 + 10,
+                                y: y_inodo - espacioVertical * (p + 1),
+                                size: 9
+                            });
+                        }
+                    }
+                }
+            } else if (tipo === "DIRECTORIO") {
+                // Línea vertical central sólida
+                page.drawLine({ 
+                    start: {x: x + w/2, y}, 
+                    end: {x: x + w/2, y: y + h}, 
+                    color: PDFLib.rgb(0, 0, 0), 
+                    thickness: 1 
+                });
+
+                // Líneas horizontales
+                const altura_fila = h / filas;
+                for (let i = 1; i < filas; i++) {
+                    page.drawLine({ 
+                        start: {x: x, y: y + i * altura_fila}, 
+                        end: {x: x + w, y: y + i * altura_fila}, 
+                        color: PDFLib.rgb(0, 0, 0), 
+                        thickness: 1 
+                    });
+                }
+
+                // Numeración de clústers y punteros
+                let contador = 1;
+                const columnas = [x, x + w/2];
+
+                for (let fila = 0; fila < filas; fila++) {
+                    const y_fila = y + h - fila * altura_fila;
+                    columnas.forEach(col => {
+                        if (contador <= divs) {
+                            page.drawText(`C${contador}`, { 
+                                x: col + 2, 
+                                y: y_fila - 10, 
+                                size: 8 
+                            });
+
+                            // Punteros en clústers (si aplica)
+                            if (etiquetaCluster) {
+                                const espacioVertical = (altura_fila - 15) / (punterosPorCluster + 1);
+                                for (let p = 0; p < punterosPorCluster; p++) {
+                                    page.drawText(etiquetaCluster, {
+                                        x: col + 5,
+                                        y: y_fila - 25 - (p * espacioVertical),
+                                        size: 8
+                                    });
+                                }
+                            }
+
+                            contador++;
+                        }
+                    });
+                }
+            } else if (tipo === "EXT") {
+                // Línea vertical central sólida
+                page.drawLine({ 
+                    start: {x: x + w/2, y}, 
+                    end: {x: x + w/2, y: y + h}, 
+                    color: PDFLib.rgb(0, 0, 0), 
+                    thickness: 1 
+                });
+
+                // Líneas horizontales
+                const altura_fila = h / filas;
+                for (let i = 1; i < filas; i++) {
+                    page.drawLine({ 
+                        start: {x: x, y: y + i * altura_fila}, 
+                        end: {x: x + w, y: y + i * altura_fila}, 
+                        color: PDFLib.rgb(0, 0, 0), 
+                        thickness: 1 
+                    });
+                }
+
+                // Numeración de clústers
+                let contador = 1;
+                const columnas = [x, x + w/2];
+
+                for (let fila = 0; fila < filas; fila++) {
+                    const y_fila = y + h - fila * altura_fila;
+                    columnas.forEach(col => {
+                        if (contador <= divs) {
+                            page.drawText(`C${contador}`, { 
+                                x: col + 2, 
+                                y: y_fila - 10, 
+                                size: 8 
+                            });
+
+                            // Booleanos DDR
+                            if (mostrar_ddr) {
+                                const izquierda = ["D", "D", "R"];
+                                const esp = (altura_fila + 20) / (izquierda.length + 1);
+                                
+                                izquierda.forEach((l, idx) => 
+                                    page.drawText(l, {
+                                        x: col + 7, 
+                                        y: y_fila - (idx + 1) * esp, 
+                                        size: 12
+                                    })
+                                );
+                            }
+                            
+                            contador++;
+                        }
+                    });
+                }
+            }
+        });
+
+        const pdfBytes = await pdfDoc.save();
+        const blob = new Blob([pdfBytes], { type: "application/pdf" });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = "Plantilla_EXT.pdf";
+        link.click();
+
+        // Mensaje de éxito
+        mostrarNotificacion("✅ PDF generado exitosamente", "success");
+
+    } catch (err) {
+        console.error("Error generando PDF:", err);
+        mostrarNotificacion("❌ Error al generar el PDF. Verifica que el archivo de plantilla exista.", "error");
+    }
+}
+
+/* ============================================
+   EXPLORADOR DEL SISTEMA EXT
+   ============================================ */
+let root = {nombre: "/", tipo: "dir", hijos: [], clusters: 0};
+let instrucciones = [];
+let maxClustersHistorico = 0;
+
+function buscarNodo(ruta, nodo = root) {
+    if (ruta === "/") return root;
+    const partes = ruta.split("/").filter(Boolean);
+    let actual = nodo;
+    for (const p of partes) {
+        actual = actual.hijos.find(h => h.nombre === p);
+        if (!actual) return null;
+    }
+    return actual;
+}
+
+function generarDirectorios(nodo = root, path = "/") {
+    let dirs = [path];
+    nodo.hijos.filter(h => h.tipo === "dir").forEach(h => {
+        const subPath = path === "/" ? `/${h.nombre}` : `${path}/${h.nombre}`;
+        dirs = dirs.concat(generarDirectorios(h, subPath));
+    });
+    return dirs;
+}
+
+function generarElementos(nodo = root, path = "/") {
+    let elems = [];
+    if (path !== "/") elems.push({nombre: path, tipo: nodo.tipo});
+    if (nodo.tipo === "dir") {
+        nodo.hijos.forEach(h => {
+            const subPath = path === "/" ? `/${h.nombre}` : `${path}/${h.nombre}`;
+            elems = elems.concat(generarElementos(h, subPath));
+        });
+    }
+    return elems;
+}
+
+function actualizarFormulario() {
+    const cmd = document.getElementById('comandoSelect').value;
+    const form = document.getElementById('formExtra');
+    form.innerHTML = "";
+
+    if (cmd === "mkdir") {
+        form.innerHTML = `
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="form-group">
+                    <label for="nombre">Nombre del directorio</label>
+                    <input type="text" id="nombre" placeholder="ej. juegos">
+                </div>
+                <div class="form-group">
+                    <label for="rutaSelect">Ubicación destino</label>
+                    <select id="rutaSelect"></select>
+                </div>
+            </div>
+        `;
+        llenarDirectorios("rutaSelect");
+    }
+    else if (cmd === "addfile") {
+        form.innerHTML = `
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="form-group">
+                    <label for="nombre">Nombre del archivo</label>
+                    <input type="text" id="nombre" placeholder="ej. documento.txt">
+                </div>
+                <div class="form-group">
+                    <label for="clusters">Número de clústers</label>
+                    <input type="number" id="clusters" value="1" min="1">
+                </div>
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label for="rutaSelect">Ubicación destino</label>
+                    <select id="rutaSelect"></select>
+                </div>
+            </div>
+        `;
+        llenarDirectorios("rutaSelect");
+    }
+    else if (cmd === "copy" || cmd === "move") {
+        form.innerHTML = `
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="form-group">
+                    <label for="elementoSelect">Elemento a ${cmd === "copy" ? "copiar" : "mover"}</label>
+                    <select id="elementoSelect"></select>
+                </div>
+                <div class="form-group">
+                    <label for="rutaSelect">Ubicación destino</label>
+                    <select id="rutaSelect"></select>
+                </div>
+            </div>
+        `;
+        llenarElementos("elementoSelect");
+        llenarDirectorios("rutaSelect");
+    }
+    else if (cmd === "delete") {
+        form.innerHTML = `
+            <div class="form-group">
+                <label for="elementoSelect">Elemento a eliminar</label>
+                <select id="elementoSelect"></select>
+            </div>
+        `;
+        llenarElementos("elementoSelect");
+    }
+}
+
+function llenarDirectorios(id) {
+    const select = document.getElementById(id);
+    const dirs = generarDirectorios();
+    select.innerHTML = "";
+    dirs.forEach(d => {
+        const opt = document.createElement("option");
+        opt.value = d;
+        opt.textContent = d;
+        select.appendChild(opt);
+    });
+}
+
+function llenarElementos(id) {
+    const select = document.getElementById(id);
+    const elems = generarElementos();
+    select.innerHTML = "";
+    elems.forEach(e => {
+        const opt = document.createElement("option");
+        opt.value = e.nombre;
+        opt.textContent = `${e.tipo === "dir" ? "📁" : "📄"} ${e.nombre}`;
+        select.appendChild(opt);
+    });
+}
+
+function agregarInstruccion() {
+    const cmd = document.getElementById('comandoSelect').value;
+    let instr = {cmd};
+
+    try {
+        if (cmd === "mkdir") {
+            instr.nombre = document.getElementById('nombre').value.trim();
+            if (!instr.nombre) throw new Error("El nombre no puede estar vacío");
+            instr.dest = document.getElementById('rutaSelect').value;
+        }
+        else if (cmd === "addfile") {
+            instr.nombre = document.getElementById('nombre').value.trim();
+            if (!instr.nombre) throw new Error("El nombre no puede estar vacío");
+            instr.clusters = parseInt(document.getElementById('clusters').value);
+            if (instr.clusters < 1) throw new Error("El número de clústers debe ser mayor a 0");
+            instr.dest = document.getElementById('rutaSelect').value;
+        }
+        else if (cmd === "copy" || cmd === "move") {
+            instr.elemento = document.getElementById('elementoSelect').value;
+            instr.dest = document.getElementById('rutaSelect').value;
+        }
+        else if (cmd === "delete") {
+            instr.elemento = document.getElementById('elementoSelect').value;
+        }
+
+        instrucciones.push(instr);
+        actualizarLista();
+        ejecutarInstr(instr);
+        recalcularClusters();
+        actualizarVista();
+        recalcularMaximoClusters();
+        
+        mostrarNotificacion("✅ Instrucción añadida correctamente", "success");
+    } catch (error) {
+        mostrarNotificacion("❌ " + error.message, "error");
+    }
+}
+
+function actualizarLista() {
+    const lista = document.getElementById('listaInstrucciones');
+    
+    if (instrucciones.length === 0) {
+        lista.innerHTML = '<div class="empty-state">No hay instrucciones aún. ¡Añade la primera!</div>';
+        return;
+    }
+    
+    lista.innerHTML = "";
+    instrucciones.forEach((i, idx) => {
+        const div = document.createElement('div');
+        div.className = "instr-item";
+        
+        const cmdText = {
+            mkdir: "Crear dir",
+            addfile: "Añadir archivo",
+            copy: "Copiar",
+            move: "Mover",
+            delete: "Eliminar"
+        }[i.cmd] || i.cmd;
+        
+        let detalles = JSON.stringify(i);
+        
+        div.innerHTML = `
+            <span class="instr-text">${idx + 1}. ${cmdText}: ${detalles}</span>
+            <button class="btn-small" onclick="borrarInstr(${idx})">❌</button>
+        `;
+        lista.appendChild(div);
+    });
+}
+
+function borrarInstr(idx) {
+    instrucciones.splice(idx, 1);
+    actualizarLista();
+    reconstruirDesdeCero();
+    mostrarNotificacion("🗑️ Instrucción eliminada", "info");
+}
+
+function ejecutarInstr(i) {
+    if (i.cmd === "mkdir") {
+        const dest = buscarNodo(i.dest);
+        if (dest) {
+            let nombreFinal = i.finalName ?? i.nombre;
+            if (i.finalName === undefined) {
+                const existenteIdx = dest.hijos.findIndex(h => h.nombre === nombreFinal);
+                if (existenteIdx !== -1) {
+                    const reemplazar = i.reemplazar ?? confirm(`Ya existe \"${nombreFinal}\" en ${i.dest}. ¿Deseas reemplazarlo? (Cancelar para renombrar)`);
+                    if (reemplazar) {
+                        dest.hijos.splice(existenteIdx, 1);
+                        i.reemplazar = true;
+                    } else {
+                        i.reemplazar = false;
+                        let nuevo = prompt("Introduce un nuevo nombre:", `${nombreFinal} (1)`);
+                        if (!nuevo) { mostrarNotificacion("ℹ️ Operación cancelada", "info"); return; }
+                        nuevo = nuevo.trim();
+                        while (dest.hijos.find(h => h.nombre === nuevo)) {
+                            nuevo = prompt("Ese nombre ya existe. Introduce otro nombre:", `${nuevo} (1)`);
+                            if (!nuevo) { mostrarNotificacion("ℹ️ Operación cancelada", "info"); return; }
+                            nuevo = nuevo.trim();
+                        }
+                        nombreFinal = nuevo;
+                        i.finalName = nombreFinal;
+                    }
+                }
+            }
+            dest.hijos.push({nombre: nombreFinal, tipo: "dir", hijos: [], clusters: 1});
+        }
+    }
+    else if (i.cmd === "addfile") {
+        const dest = buscarNodo(i.dest);
+        if (dest) {
+            let nombreFinal = i.finalName ?? i.nombre;
+            if (i.finalName === undefined) {
+                const existenteIdx = dest.hijos.findIndex(h => h.nombre === nombreFinal);
+                if (existenteIdx !== -1) {
+                    const reemplazar = i.reemplazar ?? confirm(`Ya existe \"${nombreFinal}\" en ${i.dest}. ¿Deseas reemplazarlo? (Cancelar para renombrar)`);
+                    if (reemplazar) {
+                        dest.hijos.splice(existenteIdx, 1);
+                        i.reemplazar = true;
+                    } else {
+                        i.reemplazar = false;
+                        let nuevo = prompt("Introduce un nuevo nombre:", `${nombreFinal} (1)`);
+                        if (!nuevo) { mostrarNotificacion("ℹ️ Operación cancelada", "info"); return; }
+                        nuevo = nuevo.trim();
+                        while (dest.hijos.find(h => h.nombre === nuevo)) {
+                            nuevo = prompt("Ese nombre ya existe. Introduce otro nombre:", `${nuevo} (1)`);
+                            if (!nuevo) { mostrarNotificacion("ℹ️ Operación cancelada", "info"); return; }
+                            nuevo = nuevo.trim();
+                        }
+                        nombreFinal = nuevo;
+                        i.finalName = nombreFinal;
+                    }
+                }
+            }
+            dest.hijos.push({nombre: nombreFinal, tipo: "file", clusters: i.clusters});
+        }
+    }
+    else if (i.cmd === "copy") {
+        const elem = buscarNodo(i.elemento);
+        const dest = buscarNodo(i.dest);
+        if (elem && dest) {
+            const copia = JSON.parse(JSON.stringify(elem));
+            let nombreFinal = i.finalName ?? copia.nombre;
+            if (i.finalName === undefined) {
+                const existenteIdx = dest.hijos.findIndex(h => h.nombre === nombreFinal);
+                if (existenteIdx !== -1) {
+                    const reemplazar = i.reemplazar ?? confirm(`Ya existe \"${nombreFinal}\" en ${i.dest}. ¿Deseas reemplazarlo? (Cancelar para renombrar)`);
+                    if (reemplazar) {
+                        dest.hijos.splice(existenteIdx, 1);
+                        i.reemplazar = true;
+                    } else {
+                        i.reemplazar = false;
+                        let nuevo = prompt("Introduce un nuevo nombre:", `${nombreFinal} - copia`);
+                        if (!nuevo) { mostrarNotificacion("ℹ️ Operación cancelada", "info"); return; }
+                        nuevo = nuevo.trim();
+                        while (dest.hijos.find(h => h.nombre === nuevo)) {
+                            nuevo = prompt("Ese nombre ya existe. Introduce otro nombre:", `${nuevo} (1)`);
+                            if (!nuevo) { mostrarNotificacion("ℹ️ Operación cancelada", "info"); return; }
+                            nuevo = nuevo.trim();
+                        }
+                        nombreFinal = nuevo;
+                        i.finalName = nombreFinal;
+                    }
+                }
+            }
+            copia.nombre = nombreFinal;
+            dest.hijos.push(copia);
+        }
+    }
+    else if (i.cmd === "move") {
+        const elem = buscarNodo(i.elemento);
+        const partes = i.elemento.split("/").filter(Boolean);
+        const nombreOriginal = partes.pop();
+        const parent = buscarNodo("/" + partes.join("/"));
+        const dest = buscarNodo(i.dest);
+        if (elem && parent && dest) {
+            let nombreFinal = i.finalName ?? nombreOriginal;
+            if (i.finalName === undefined) {
+                const existenteIdx = dest.hijos.findIndex(h => h.nombre === nombreFinal);
+                if (existenteIdx !== -1) {
+                    const reemplazar = i.reemplazar ?? confirm(`Ya existe \"${nombreFinal}\" en ${i.dest}. ¿Deseas reemplazarlo? (Cancelar para renombrar)`);
+                    if (reemplazar) {
+                        dest.hijos.splice(existenteIdx, 1);
+                        i.reemplazar = true;
+                    } else {
+                        i.reemplazar = false;
+                        let nuevo = prompt("Introduce un nuevo nombre:", `${nombreFinal} (1)`);
+                        if (!nuevo) { mostrarNotificacion("ℹ️ Operación cancelada", "info"); return; }
+                        nuevo = nuevo.trim();
+                        while (dest.hijos.find(h => h.nombre === nuevo)) {
+                            nuevo = prompt("Ese nombre ya existe. Introduce otro nombre:", `${nuevo} (1)`);
+                            if (!nuevo) { mostrarNotificacion("ℹ️ Operación cancelada", "info"); return; }
+                            nuevo = nuevo.trim();
+                        }
+                        nombreFinal = nuevo;
+                        i.finalName = nombreFinal;
+                    }
+                }
+            }
+            // Quitar del padre original y mover al destino con el nombre final
+            parent.hijos = parent.hijos.filter(h => h.nombre !== nombreOriginal);
+            elem.nombre = nombreFinal;
+            dest.hijos.push(elem);
+        }
+    }
+    else if (i.cmd === "delete") {
+        const partes = i.elemento.split("/").filter(Boolean);
+        const nombre = partes.pop();
+        const parent = buscarNodo("/" + partes.join("/"));
+        if (parent) parent.hijos = parent.hijos.filter(h => h.nombre !== nombre);
+    }
+}
+
+function recalcularClusters() {
+    const usar = contarClusters(root);
+    document.getElementById("maxClusters").textContent = Math.max(maxClustersHistorico, usar);
+}
+
+function contarClusters(nodo) {
+    let total = 0;
+    if (nodo !== root) total += (nodo.clusters || 0);
+    if (nodo.tipo === "dir") nodo.hijos.forEach(h => total += contarClusters(h));
+    return total;
+}
+
+function actualizarVista() {
+    const pre = document.getElementById('vista');
+    pre.textContent = imprimirArbol(root);
+}
+
+function imprimirArbol(nodo, pref = "", esUltimo = true) {
+    let out = "";
+    if (nodo === root) {
+        out = "📁 / (raíz)\n";
+    } else {
+        const simbolo = esUltimo ? "└─ " : "├─ ";
+        out = pref + simbolo + (nodo.tipo === "dir" ? "📁 " : "📄 ") + nodo.nombre + " (" + (nodo.clusters || 0) + " clúster" + (nodo.clusters !== 1 ? "s" : "") + ")\n";
+    }
+
+    if (nodo.hijos && nodo.hijos.length > 0) {
+        nodo.hijos.forEach((h, idx) => {
+            const esUltimoHijo = idx === nodo.hijos.length - 1;
+            const nuevoPrefix = nodo === root ? "" : pref + (esUltimo ? "   " : "│  ");
+            out += imprimirArbol(h, nuevoPrefix, esUltimoHijo);
+        });
+    }
+    return out;
+}
+
+
+function reconstruirDesdeCero() {
+    root = {nombre: "/", tipo: "dir", hijos: [], clusters: 0};
+    instrucciones.forEach(i => ejecutarInstr(i));
+    recalcularClusters();
+    actualizarVista();
+    recalcularMaximoClusters();
+}
+
+// Calcula el máximo número de clústers usados simultáneamente a lo largo de toda la historia
+function recalcularMaximoClusters() {
+    // Simular desde el principio, guardando y restaurando estado
+    const snapshotInstrucciones = JSON.parse(JSON.stringify(instrucciones));
+
+    // Simulación en un árbol temporal, respetando decisiones persistidas (finalName/reemplazar)
+    let tempRoot = {nombre: "/", tipo: "dir", hijos: [], clusters: 0};
+    const aplicar = (i) => {
+        // Crear una copia para no mutar la instrucción original durante simulación
+        const sim = JSON.parse(JSON.stringify(i));
+        // Reutilizar la lógica real aplicándola sobre el árbol temporal
+        const originalRoot = root;
+        root = tempRoot;
+        try {
+            ejecutarInstr(sim);
+        } finally {
+            tempRoot = root;
+            root = originalRoot;
+        }
+    };
+
+    let maximo = 0;
+    let actual = 0;
+    const contar = (nodo) => {
+        let total = 0;
+        if (nodo !== tempRoot) total += (nodo.clusters || 0);
+        if (nodo.tipo === "dir") nodo.hijos.forEach(h => total += contar(h));
+        return total;
+    };
+
+    // Recorremos la historia y tras cada operación medimos el uso actual
+    tempRoot = {nombre: "/", tipo: "dir", hijos: [], clusters: 0};
+    for (const ins of snapshotInstrucciones) {
+        aplicar(ins);
+        actual = contar(tempRoot);
+        if (actual > maximo) maximo = actual;
+    }
+
+    maxClustersHistorico = maximo;
+    // Refrescar la UI
+    const usar = contarClusters(root);
+    document.getElementById("maxClusters").textContent = Math.max(maxClustersHistorico, usar);
+}
+
+function mostrarNotificacion(mensaje, tipo) {
+    // Simple alert por ahora - puedes mejorar esto con una librería de notificaciones
+    console.log(`[${tipo.toUpperCase()}] ${mensaje}`);
+}
+
+// Inicialización
+actualizarFormulario();
+actualizarVista();
+
+// Animación inversa al navegar a inicio
+document.getElementById('homeLink').addEventListener('click', function(ev) {
+    ev.preventDefault();
+    const href = this.getAttribute('href');
+    document.body.classList.add('leaving');
+    setTimeout(() => { window.location.href = href; }, 320);
+});
+</script>
+</body>
+</html>
