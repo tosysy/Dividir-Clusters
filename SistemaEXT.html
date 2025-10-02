@@ -10,13 +10,7 @@
 </head>
 <body>
     <a href="index.html" class="btn-home" id="homeLink" style="animation: fadeInButton 0.5s ease-out;">🏠 <span>Página de Inicio</span></a>
-    <style>
-        @keyframes fadeInButton {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    </style>
-
+    
     <div class="container">
         <!-- Panel izquierdo: Generador PDF -->
         <div class="panel" style="padding: 20px;">
@@ -37,7 +31,7 @@
                     <label for="tipoPunteros" style="margin-bottom: 6px; font-size: 0.9em;">Tipo de Punteros</label>
                     <select id="tipoPunteros" style="padding: 10px 12px;">
                         <option value="simples">Simples</option>
-                        <option value="dobles">Dobles</option>
+                        <option value="dobles" selected>Dobles</option>
                         <option value="triples">Triples</option>
                     </select>
                 </div>
@@ -54,7 +48,7 @@
 
                 <div class="form-group" style="display: flex; align-items: center; padding-top: 28px; margin-bottom: 12px;">
                     <div class="checkbox-group">
-                        <input type="checkbox" id="ddr">
+                        <input type="checkbox" id="ddr" checked>
                         <label for="ddr" style="margin: 0; font-size: 0.9em;">Mostrar booleanos (DDR)</label>
                     </div>
                 </div>
@@ -141,26 +135,24 @@ async function generarPDF() {
         const filas = Math.ceil(divs / 2);
 
         // Añadir encabezados METADATOS y DATOS con líneas y flechas
-        const yEncabezado = 31.7 + 534.5 + 10; // Justo encima de los cuadros
-        const yLinea = yEncabezado - 5; // Línea debajo del texto
-        const tamanoFlecha = 8; // Tamaño de las flechas
-        const separacionFlechas = 5; // Separación entre las flechas de cada sección
+        const yEncabezado = 31.7 + 534.5 + 10;
+        const yLinea = yEncabezado - 5;
+        const tamanoFlecha = 8;
+        const separacionFlechas = 5;
         
-        // METADATOS (desde el borde izquierdo hasta 469.5)
-        const xInicioMetadatos = 50 - 35.5; // Comenzar desde el borde izquierdo del PDF (restando los 35.5 que se añadieron antes)
-        const xFinMetadatos = 469.5 - separacionFlechas; // Dejamos espacio para separar
+        // METADATOS
+        const xInicioMetadatos = 50 - 35.5 + 10;
+        const xFinMetadatos = 469.5 - separacionFlechas;
         const anchoMetadatos = xFinMetadatos - xInicioMetadatos;
         const xCentroMetadatos = (xInicioMetadatos + xFinMetadatos) / 2;
         
         page.drawText("METADATOS", {
-            x: xCentroMetadatos - 35, // Ajuste para centrar el texto
+            x: xCentroMetadatos - 35,
             y: yEncabezado,
             size: 14,
             color: PDFLib.rgb(0, 0, 0)
         });
         
-
-        // Línea horizontal METADATOS
         page.drawLine({
             start: { x: xInicioMetadatos, y: yLinea },
             end: { x: xFinMetadatos, y: yLinea },
@@ -168,7 +160,6 @@ async function generarPDF() {
             thickness: 1.5
         });
         
-        // Flecha izquierda METADATOS
         page.drawLine({
             start: { x: xInicioMetadatos, y: yLinea },
             end: { x: xInicioMetadatos + tamanoFlecha, y: yLinea + tamanoFlecha/2 },
@@ -182,7 +173,6 @@ async function generarPDF() {
             thickness: 1.5
         });
         
-        // Flecha derecha METADATOS
         page.drawLine({
             start: { x: xFinMetadatos, y: yLinea },
             end: { x: xFinMetadatos - tamanoFlecha, y: yLinea + tamanoFlecha/2 },
@@ -196,27 +186,26 @@ async function generarPDF() {
             thickness: 1.5
         });
 
-        // DATOS (desde 469.5 hasta el final)
-        const xInicioDatos = 469.5 + separacionFlechas; // Dejamos espacio para separar
+        // DATOS
+        // DATOS
+        const xInicioDatos = 469.5 + separacionFlechas;
         const xFinDatos = 469.5 + 350.4;
         const xCentroDatos = (xInicioDatos + xFinDatos) / 2;
         
         page.drawText("DATOS", {
-            x: xCentroDatos - 20, // Ajuste para centrar el texto
+            x: xCentroDatos - 20,
             y: yEncabezado,
             size: 14,
             color: PDFLib.rgb(0, 0, 0)
         });
         
-        // Línea horizontal DATOS
         page.drawLine({
-            start: { x: xInicioDatos + tamanoFlecha, y: yLinea },
-            end: { x: xFinDatos - tamanoFlecha, y: yLinea },
+            start: { x: xInicioDatos, y: yLinea },
+            end: { x: xFinDatos, y: yLinea },
             color: PDFLib.rgb(0, 0, 0),
             thickness: 1.5
         });
         
-        // Flecha izquierda DATOS
         page.drawLine({
             start: { x: xInicioDatos, y: yLinea },
             end: { x: xInicioDatos + tamanoFlecha, y: yLinea + tamanoFlecha/2 },
@@ -230,7 +219,6 @@ async function generarPDF() {
             thickness: 1.5
         });
         
-        // Flecha derecha DATOS
         page.drawLine({
             start: { x: xFinDatos, y: yLinea },
             end: { x: xFinDatos - tamanoFlecha, y: yLinea + tamanoFlecha/2 },
@@ -250,7 +238,7 @@ async function generarPDF() {
         
         if (tipoPunteros === "simples") {
             etiquetaInodo = "PS";
-            etiquetaCluster = ""; // Los simples no tienen punteros en clusters
+            etiquetaCluster = "";
         } else if (tipoPunteros === "dobles") {
             etiquetaInodo = "PD";
             etiquetaCluster = "PS";
@@ -297,11 +285,19 @@ async function generarPDF() {
                 for (let i = 0; i < inodos; i++) {
                     const y_inodo = y + h - i * altura_inodo;
                     
-                    // Título del inodo (izquierda)
+                    // Título del inodo (izquierda arriba)
                     page.drawText(`Inodo ${i + 1}`, { 
                         x: x + 5, 
                         y: y_inodo - 15, 
                         size: 10 
+                    });
+
+                    // "Disponible" en el centro de la mitad izquierda
+                    page.drawText("Disponible", {
+                        x: x + 10,
+                        y: y_inodo - altura_inodo/2 - 3,
+                        size: 11,
+                        color: PDFLib.rgb(0.3, 0.3, 0.3)
                     });
 
                     // Punteros en el inodo (derecha) - distribuidos uniformemente
@@ -336,32 +332,19 @@ async function generarPDF() {
                     });
                 }
 
-                // Numeración de clústers y punteros
+                // Numeración de clústers (sin punteros)
                 let contador = 1;
                 const columnas = [x, x + w/2];
 
                 for (let fila = 0; fila < filas; fila++) {
                     const y_fila = y + h - fila * altura_fila;
-                    columnas.forEach(col => {
+                    columnas.forEach((col, colIdx) => {
                         if (contador <= divs) {
                             page.drawText(`C${contador}`, { 
                                 x: col + 2, 
                                 y: y_fila - 10, 
                                 size: 8 
                             });
-
-                            // Punteros en clústers (si aplica)
-                            if (etiquetaCluster) {
-                                const espacioVertical = (altura_fila - 15) / (punterosPorCluster + 1);
-                                for (let p = 0; p < punterosPorCluster; p++) {
-                                    page.drawText(etiquetaCluster, {
-                                        x: col + 5,
-                                        y: y_fila - 25 - (p * espacioVertical),
-                                        size: 8
-                                    });
-                                }
-                            }
-
                             contador++;
                         }
                     });
